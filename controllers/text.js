@@ -1,6 +1,6 @@
-import bot from '../init.js'
-import { openai, ai_model } from '../openai_config.js';
-import { logger } from '../logger_config.js';
+import bot from '../main.js'
+import { openai, ai_model } from '../config/openai_config.js';
+import { logger } from '../config/logger_config.js';
 
 export async function promptEmptyCommandHandler(msg, chatHistoryMap) {
     logger.info("EMPTY PROMPT HANDLER ACTIVATED");
@@ -36,8 +36,7 @@ export async function promptEmptyCommandHandler(msg, chatHistoryMap) {
     bot.sendMessage(chatId, msgText, {reply_to_message_id: msgId}).then(() => logger.info("msg sent"));
 }
 
-export async function promptCommandHandler(msg, chatHistoryMap) {
-    // console.log('MSG INFO: ', msg);
+export async function promptCommandHandler(msg, prompt, chatHistoryMap) {
 
     logger.info("PROMPT HANDLER ACTIVATED")
 
@@ -45,7 +44,7 @@ export async function promptCommandHandler(msg, chatHistoryMap) {
     const msgSender = msg.from;
     const msgId = msg.message_id;
     const msgThreadId = msg.message_thread_id;
-    const msgText = msg.text.split(' ')[1] || msg.text;
+    const msgText = prompt;
 
     console.log('msg text:', msgText);
 
@@ -66,33 +65,34 @@ export async function promptCommandHandler(msg, chatHistoryMap) {
         reply_to_message_id: msgId
     }
 
-    bot.sendMessage(chatId, 'Создаю ответ\\.\\.\\.', msgOptions);
+    const chatCompletion = await sendMessageWithPlaceholder(chatId, chatHistoryId, chatHistoryMap, msgOptions);
+
+    const botAnswer = chatCompletion.choices[0];
 
     try {
-
-        await sendMessageWithPlaceholder(chatId, chatHistoryId, chatHistoryMap, msgOptions);
-
-    } catch(err) {
-        
-        console.error('ERROR');
+        logger.info("sending message...");
+        bot.sendMessage(
+            chatId, 
+            createPromptMessage(msgSender, botAnswer.message.content), 
+            msgOptions
+        ).then(
+            (msg) => {console.log('msg sent'); console.log(msg);}
+        )
+    
+        chatHistoryMap.get(chatHistoryId).push(botAnswer.message);
+    } catch (err) {
         console.error(err);
-
-        try {
-
-            bot.sendMessage(chatId, `Error happened while generating answer: ${err}`).then(() => console.log('error msg sent'));
-
-        } catch (err) {
-
-            console.error('cant send error msg');
-
-        }
-
+        bot.sendMessage(
+            chatId, 
+            `Error creating message: ${err}`
+        ).then(
+            (msg) => {console.log('error msg sent'); console.log(msg);}
+        )
     }
+
 }
 
 export async function textMessageHandler(msg, chatHistoryMap) {
-    // console.log('MSG INFO: ', msg);
-
     logger.info("TEXT MSG HANDLER ACTIVATED");
 
     const chatId = msg.chat.id;
@@ -145,30 +145,41 @@ export async function textMessageHandler(msg, chatHistoryMap) {
     
 }
 
+// Sending&refreshing placeholder message while the main content is loading
 async function sendMessageWithPlaceholder(chatId, chatHistoryId, chatHistoryMap, msgOptions) {
 
     let placeholderMsgID;
     let intervalID;
     let progressBar = "⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜"
+    console.log('length: ', progressBar.length);
     let emptySymbol = "⬜";
-    let filledSymbol = "⬛"
+    let filledSymbol = "🟩"
     let currentSymbolType = filledSymbol;
     let index = 0;
-    let placeholderText = `Создаю ответ\\.\\.\\.
-${progressBar}`
+    let placeholderText = `Создаю ответ\\.\\.\\.\n${progressBar}`
     await bot.sendMessage(chatId, placeholderText, msgOptions).then(result => placeholderMsgID = result.message_id);
     logger.info('generating bot response...')
     const beginTime = new Date().getTime();
     intervalID = setInterval(() => {
-        progressBar = progressBar.substring(0, index) + currentSymbolType + progressBar.substring(index+1);
+        // progressBar = progressBar.substring(0, index) + currentSymbolType + progressBar.substring(index+1);
+        // progressBar = '';
+        const symbols = [...progressBar]
+        for(let i = 0; i < index; i++) {
+            symbols[i] = filledSymbol
+        }
+        for(let j = index; j < 10; j++) {
+            symbols[j] = emptySymbol;
+        }
+        progressBar = [...symbols].join('');
+        // progressBar += filledSymbol;
         if(++index > 9) {
             index = 0;
             currentSymbolType = (currentSymbolType == filledSymbol) ? emptySymbol : filledSymbol;
         }
-        placeholderText = `Создаю ответ...
-${progressBar}`
+        placeholderText = `Создаю ответ...\n${progressBar}`
+        console.log('progress bar : ', progressBar);
         bot.editMessageText(placeholderText, {chat_id: chatId, message_id: placeholderMsgID}).then(() => console.log('msg edited'));
-    }, 2000);
+    }, 1000);
     const chatCompletion = await openai.chat.completions.create({
         messages: [...chatHistoryMap.get(chatHistoryId)],
         model: ai_model
@@ -178,10 +189,10 @@ ${progressBar}`
     clearInterval(intervalID);
     bot.deleteMessage(chatId, placeholderMsgID)
 
-
     return chatCompletion;
 }
 
+// Format bot answer message
 function createPromptMessage(sender, content) {
 
     const tokenCount = content.split(' ').length;
@@ -212,6 +223,7 @@ ${msgCostString}
     return promptMsg;
 }
 
+// Format string for markdown parse mode - escape any special characters with backslashes
 function formatString(str) {
     const specialCharacters = ['_', '-', '.', '!', '(', ')', '[', ']'];
     // for(const char of specialCharacters) {
@@ -228,6 +240,7 @@ function formatString(str) {
     .replace(/\]/g, "\\]");
 }
 
+// Format datetime to string
 function formatDatetime(datetime) {
     return `${datetime.getFullYear()}-${(datetime.getMonth()+1).toString().padStart(2, '0')}-${datetime.getDate().toString().padStart(2, '0')} ${datetime.getHours().toString().padStart(2, '0')}:${datetime.getMinutes().toString().padStart(2, '0')}`
 }

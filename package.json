@@ -2,7 +2,8 @@
   "type": "module",
   "main": "main.js",
   "scripts": {
-    "start": "tsc main.ts | node main.js"
+    "start": "node main.js",
+    "dev": "nodemon main.js"
   },
   "devDependencies": {
     "@types/node-telegram-bot-api": "^0.64.0"
