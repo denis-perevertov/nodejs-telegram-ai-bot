@@ -1,0 +1,18 @@
+{
+  "type": "module",
+  "main": "main.js",
+  "scripts": {
+    "start": "tsc main.ts | node main.js"
+  },
+  "devDependencies": {
+    "@types/node-telegram-bot-api": "^0.64.0"
+  },
+  "dependencies": {
+    "colors": "^1.4.0",
+    "dotenv": "^16.3.1",
+    "node-telegram-bot-api": "^0.64.0",
+    "openai": "^4.20.1",
+    "ts-node": "^10.9.1",
+    "winston": "^3.11.0"
+  }
+}
