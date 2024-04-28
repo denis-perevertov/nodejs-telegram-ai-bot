@@ -23,6 +23,11 @@ Go into the directory:
 
     cd nodejs-telegram-ai-bot
 
+Set bot username / token from @BotFather as env.variables:
+
+    TELEGRAM_BOT_USERNAME=[username]
+    TELEGRAM_BOT_TOKEN=[token]
+
 Run the bot:
 
     npm run dev
