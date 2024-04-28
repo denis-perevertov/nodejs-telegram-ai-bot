@@ -5,6 +5,8 @@ export function initBot() {
     const bot = new TelegramBot(token, options);
     console.log('Telegram bot started');
 
+    setCommandsFromConfig(bot);
+
     return bot;
 }
 

@@ -11,9 +11,14 @@
   "dependencies": {
     "colors": "^1.4.0",
     "dotenv": "^16.3.1",
+    "ffmpeg": "^0.0.4",
+    "jimp": "^0.22.10",
+    "mongodb": "^6.3.0",
     "node-telegram-bot-api": "^0.64.0",
     "openai": "^4.20.1",
     "ts-node": "^10.9.1",
-    "winston": "^3.11.0"
+    "uuid": "^9.0.1",
+    "winston": "^3.11.0",
+    "youtube-transcript": "^1.0.6"
   }
 }
